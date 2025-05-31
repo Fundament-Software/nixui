@@ -175,7 +175,7 @@ dependencies = [
  "objc2-foundation 0.3.1",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -844,6 +844,7 @@ dependencies = [
 [[package]]
 name = "feather-macro"
 version = "0.1.5"
+source = "git+https://github.com/Fundament-Software/feathergui#2d413a7e1b6b0aba8e7f9c1285938dd2b66f0043"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -855,6 +856,7 @@ dependencies = [
 [[package]]
 name = "feather-ui"
 version = "0.1.5"
+source = "git+https://github.com/Fundament-Software/feathergui#2d413a7e1b6b0aba8e7f9c1285938dd2b66f0043"
 dependencies = [
  "alloca",
  "arboard",
@@ -2742,7 +2744,7 @@ dependencies = [
  "getrandom",
  "once_cell",
  "rustix 1.0.7",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
