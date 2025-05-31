@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Software SPC <https://fundament.software>
+
+.vs/
+.vscode/
+*.exe
+/target/
+*.user
+/.direnv/
+/examples/calculator-rs/calculator-cs/obj
+/examples/calculator-rs/calculator-cs/bin
+.rustfmt.toml
