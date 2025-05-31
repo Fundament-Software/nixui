@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
+
 [package]
 name = "nixui"
 version = "0.1.0"
@@ -5,8 +8,8 @@ edition = "2024"
 
 [dependencies]
 nix-editor = "0.3.0"
-feather-ui = { git = "https://github.com/Fundament-Software/feathergui" }
-feather-macro = { git = "https://github.com/Fundament-Software/feathergui" }
+feather-ui = { path = "../feathergui/feather-ui" }
+feather-macro = { path = "../feathergui/feather-macro" }
 ultraviolet = "0.10.0"
 im = "15.1.0"
 winit = "0.30.11"
