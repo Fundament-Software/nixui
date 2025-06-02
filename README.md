@@ -8,4 +8,4 @@ On windows, simply run `cargo build`. On NixOS, use `nix develop` to open a shel
 
 ## Running
 
-On windows, run `cargo run --release`. On NixOS, use `nix develop` to open a shell that has `cargo run --release` available.
+On windows, run `cargo run --release`. On NixOS, use `nix run github:Fundament-Software/nixui`.
