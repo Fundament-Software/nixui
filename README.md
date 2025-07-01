@@ -9,3 +9,10 @@ On windows, simply run `cargo build`. On NixOS, use `nix develop` to open a shel
 ## Running
 
 On windows, run `cargo run --release`. On NixOS, use `nix run github:Fundament-Software/nixui`.
+
+## License
+Copyright © 2025 Fundament Software SPC
+
+Distributed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+
+SPDX-License-Identifier: Apache-2.0

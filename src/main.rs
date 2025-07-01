@@ -2,31 +2,33 @@
 // SPDX-FileCopyrightText: 2025 Fundament Research Institute <https://fundament.institute>
 
 use feather_macro::*;
+use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::listbox::ListBox;
 use feather_ui::component::region::Region;
-use feather_ui::component::shape::Shape;
+use feather_ui::component::shape;
 use feather_ui::component::text::Text;
 use feather_ui::component::textbox::TextBox;
 use feather_ui::component::window::Window;
-use feather_ui::component::{ComponentFrom, mouse_area, textbox};
+use feather_ui::component::{ChildOf, mouse_area, textbox};
+use feather_ui::cosmic_text::{FamilyOwned, Wrap};
 use feather_ui::layout::{base, fixed, leaf, list};
 use feather_ui::persist::FnPersist;
-use feather_ui::text::{EditObj, Snapshot};
+use feather_ui::text::{EditBuffer, EditView};
+use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AUTO_DRECT, AbsRect, App, DAbsRect, DPoint, DRect, DataID, FILL_DRECT, RelRect, Slot, SourceID,
-    UNSIZED_AXIS, URect, gen_id,
+    AbsRect, App, DAbsRect, DPoint, DRect, DataID, RelLimits, RelRect, Slot, SourceID,
+    UNSIZED_AXIS, URect, gen_id, im, winit,
 };
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec4};
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct ConfigState {
     file: String,
-    nix: BTreeMap<String, Snapshot>,
+    nix: BTreeMap<String, EditView>,
     last: HashMap<String, String>,
 }
 
@@ -59,29 +61,26 @@ impl base::Limits for ListData {}
 impl list::Prop for ListData {}
 impl fixed::Child for ListData {}
 
-#[derive(
-    Clone,
-    feather_macro::Empty,
-    feather_macro::Area,
-    feather_macro::TextEdit,
-    feather_macro::Padding,
-)]
+#[derive(Clone, Empty, Area, TextEdit, Padding, Anchor, RLimits)]
 struct MinimalText {
     area: DRect,
     padding: DAbsRect,
-    textedit: Snapshot,
+    textedit: EditView,
+    anchor: DPoint,
+    rlimits: feather_ui::RelLimits,
 }
 impl base::Direction for MinimalText {}
 impl base::ZIndex for MinimalText {}
 impl base::Limits for MinimalText {}
-impl base::RLimits for MinimalText {}
-impl base::Anchor for MinimalText {}
 impl leaf::Padded for MinimalText {}
 impl leaf::Prop for MinimalText {}
 impl fixed::Child for MinimalText {}
 impl textbox::Prop for MinimalText {}
 
 struct BasicApp {}
+
+const GREEN: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
+const GRAY: sRGB = sRGB::new(0.45, 0.45, 0.45, 1.0);
 
 impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
     type Store = (ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>);
@@ -90,34 +89,26 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
         (Default::default(), im::HashMap::new())
     }
     fn call(
-        &self,
+        &mut self,
         mut store: Self::Store,
         args: &ConfigState,
     ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
         if store.0 != *args {
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn list::Prop>>>> =
-                im::Vector::new();
+            let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> = im::Vector::new();
 
             for (i, (k, v)) in args.nix.iter().enumerate() {
-                let mut parts: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-
-                let rect = Shape::<DRect>::round_rect(
-                    Rc::new(gen_id!())
-                        .child(DataID::Owned(k.to_string()))
-                        .into(),
+                let rect = shape::round_rect(
+                    gen_id!().child(DataID::Owned(k.to_string())).into(),
                     feather_ui::FILL_DRECT.into(),
                     1.0,
                     0.0,
                     Vec4::broadcast(8.0),
-                    Vec4::new(0.1, 0.1, 0.1, 1.0),
-                    Vec4::new(0.3, 0.3, 0.3, 1.0),
+                    sRGB::new(0.1, 0.1, 0.1, 1.0),
+                    sRGB::new(0.3, 0.3, 0.3, 1.0),
                 );
 
                 let text = Text::<FixedData> {
-                    id: Rc::new(gen_id!())
-                        .child(DataID::Owned(k.to_string()))
-                        .into(),
+                    id: gen_id!().child(DataID::Owned(k.to_string())).into(),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -140,30 +131,25 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     None
                 };
 
-                const GREEN: Vec4 = Vec4::new(0.2, 0.7, 0.4, 1.0);
-                const GRAY: Vec4 = Vec4::new(0.45, 0.45, 0.45, 1.0);
+                let mut parts: im::Vector<Option<Box<ChildOf<dyn fixed::Prop>>>> =
+                    im::Vector::new();
+                parts.push_back(Some(Box::new(rect)));
+                parts.push_back(Some(Box::new(text)));
 
                 if let Some(v) = toggle {
                     let button = {
-                        let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                            im::Vector::new();
-
-                        let rect = Shape::<DRect>::round_rect(
-                            Rc::new(gen_id!())
-                                .child(DataID::Owned(k.to_string()))
-                                .into(),
+                        let rect = shape::round_rect(
+                            gen_id!().child(DataID::Owned(k.to_string())).into(),
                             feather_ui::FILL_DRECT.into(),
                             3.0,
                             0.0,
                             Vec4::broadcast(14.0),
-                            Vec4::zero(),
+                            sRGB::transparent(),
                             if v { GREEN } else { GRAY },
                         );
 
-                        let circle = Shape::<FixedData>::circle(
-                            Rc::new(gen_id!())
-                                .child(DataID::Owned(k.to_string()))
-                                .into(),
+                        let circle = shape::circle(
+                            gen_id!().child(DataID::Owned(k.to_string())).into(),
                             FixedData {
                                 area: URect {
                                     abs: AbsRect::new(0.0, 0.0, 20.0, 20.0),
@@ -193,16 +179,11 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                             0.0,
                             Vec2::new(0.0, 0.0),
                             if v { GREEN } else { GRAY },
-                            Vec4::zero(),
+                            sRGB::transparent(),
                         );
 
-                        children.push_back(Some(Box::new(circle)));
-                        children.push_back(Some(Box::new(rect)));
-
                         Button::<FixedData>::new(
-                            Rc::new(gen_id!())
-                                .child(DataID::Owned(k.to_string()))
-                                .into(),
+                            gen_id!().child(DataID::Owned(k.to_string())).into(),
                             FixedData {
                                 area: URect {
                                     abs: AbsRect::new(-10.0, 0.0, 35.0, 30.0),
@@ -213,76 +194,87 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                                 ..Default::default()
                             },
                             Slot(feather_ui::APP_SOURCE_ID.into(), i as u64 + 2),
-                            children,
+                            feather_ui::children![fixed::Prop, rect, circle],
                         )
                     };
                     parts.push_back(Some(Box::new(button)));
                 } else {
                     let textbox = TextBox::new(
-                        Rc::new(gen_id!())
-                            .child(DataID::Owned(k.to_string()))
-                            .into(),
+                        gen_id!().child(DataID::Owned(k.to_string())).into(),
                         MinimalText {
                             area: URect {
-                                abs: AbsRect::new(10.0, 0.0, -10.0, 0.0),
-                                rel: RelRect::new(0.5, 0.0, 1.0, 1.0),
+                                abs: AbsRect::new(10.0, 5.0, 10.0, 5.0),
+                                rel: RelRect::new(1.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS),
                             }
                             .into(),
-                            padding: AbsRect::broadcast(4.0).into(),
+                            anchor: feather_ui::RelPoint::new(1.0, 0.0).into(),
+                            rlimits: RelLimits::new(
+                                Vec2::broadcast(f32::NEG_INFINITY),
+                                Vec2::new(1.0, f32::INFINITY),
+                            ),
+                            padding: AbsRect::new(4.0, 4.0, 14.0, 4.0).into(),
                             textedit: v.clone(),
                         },
                         30.0,
                         42.0,
-                        glyphon::FamilyOwned::SansSerif,
-                        glyphon::Color::rgba(255, 255, 255, 255),
+                        FamilyOwned::SansSerif,
+                        feather_ui::color::sRGB::white(),
                         Default::default(),
                         Default::default(),
-                        glyphon::Wrap::Word,
+                        Wrap::Word,
                     );
-                    parts.push_back(Some(Box::new(textbox)));
 
-                    let rect = Shape::<DRect>::round_rect(
-                        Rc::new(gen_id!())
-                            .child(DataID::Owned(k.to_string()))
-                            .into(),
+                    let rect = shape::round_rect::<DRect>(
+                        gen_id!().child(DataID::Owned(k.to_string())).into(),
                         Rc::new(
                             URect {
                                 abs: AbsRect::new(6.0, 6.0, -6.0, -6.0),
-                                rel: RelRect::new(0.5, 0.0, 1.0, 1.0),
+                                rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
                             }
                             .into(),
                         ),
                         1.0,
                         0.0,
                         Vec4::broadcast(8.0),
-                        Vec4::new(0.05, 0.05, 0.05, 1.0),
-                        Vec4::new(0.4, 0.4, 0.4, 1.0),
+                        sRGB::new(0.05, 0.05, 0.05, 1.0),
+                        sRGB::new(0.4, 0.4, 0.4, 1.0),
                     );
-                    parts.push_back(Some(Box::new(rect)));
+
+                    let region = Region::new(
+                        gen_id!().child(DataID::Owned(k.to_string())).into(),
+                        FixedData {
+                            area: URect::from(RelRect::new(1.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS))
+                                .into(),
+                            anchor: feather_ui::RelPoint::new(1.0, 0.0).into(),
+                            rlimits: RelLimits::new(
+                                Vec2::broadcast(f32::NEG_INFINITY),
+                                Vec2::new(0.5, f32::INFINITY),
+                            ),
+                            ..Default::default()
+                        }
+                        .into(),
+                        feather_ui::children![fixed::Prop, rect, textbox],
+                    );
+
+                    parts.push_back(Some(Box::new(region)));
                 }
 
-                parts.push_back(Some(Box::new(text)));
-
-                parts.push_back(Some(Box::new(rect)));
-
-                children.push_back(Some(Box::new(Region {
-                    id: Rc::new(gen_id!())
-                        .child(DataID::Owned(k.to_string()))
-                        .into(),
-                    props: FixedData {
+                children.push_back(Some(Box::new(Region::new(
+                    gen_id!().child(DataID::Owned(k.to_string())).into(),
+                    FixedData {
                         area: URect::from(RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS)).into(),
                         padding: AbsRect::broadcast(16.0).into(),
                         margin: AbsRect::broadcast(4.0).into(),
                         ..Default::default()
                     }
                     .into(),
-                    children: parts,
-                })));
+                    parts,
+                ))));
             }
 
-            let list = ListBox::<ListData> {
-                id: gen_id!().into(),
-                props: ListData {
+            let list = ListBox::<ListData>::new(
+                gen_id!().into(),
+                ListData {
                     area: URect {
                         abs: AbsRect::new(8.0, 68.0, -8.0, -8.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS),
@@ -296,7 +288,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 }
                 .into(),
                 children,
-            };
+            );
 
             let accept = {
                 let text = Text::<FixedData> {
@@ -316,20 +308,15 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-                children.push_back(Some(Box::new(text)));
-
-                let rect = Shape::<DRect>::round_rect(
+                let rect = shape::round_rect::<DRect>(
                     gen_id!().into(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.2, 0.7, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.2, 0.7, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
-                children.push_back(Some(Box::new(rect)));
 
                 Button::<FixedData>::new(
                     gen_id!().into(),
@@ -342,7 +329,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                         ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 0),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
@@ -364,20 +351,15 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     ..Default::default()
                 };
 
-                let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                    im::Vector::new();
-                children.push_back(Some(Box::new(text)));
-
-                let rect = Shape::<DRect>::round_rect(
+                let rect = shape::round_rect::<DRect>(
                     gen_id!().into(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
                     Vec4::broadcast(10.0),
-                    Vec4::new(0.7, 0.2, 0.4, 1.0),
-                    Vec4::zero(),
+                    sRGB::new(0.7, 0.2, 0.4, 1.0),
+                    sRGB::transparent(),
                 );
-                children.push_back(Some(Box::new(rect)));
 
                 Button::<FixedData>::new(
                     gen_id!().into(),
@@ -390,26 +372,19 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                         ..Default::default()
                     },
                     Slot(feather_ui::APP_SOURCE_ID.into(), 1),
-                    children,
+                    feather_ui::children![fixed::Prop, rect, text],
                 )
             };
 
-            let mut children: im::Vector<Option<Box<ComponentFrom<dyn fixed::Prop>>>> =
-                im::Vector::new();
-
-            children.push_back(Some(Box::new(list)));
-            children.push_back(Some(Box::new(accept)));
-            children.push_back(Some(Box::new(discard)));
-
-            let region = Region {
-                id: gen_id!().into(),
-                props: FixedData {
+            let region = Region::new(
+                gen_id!().into(),
+                FixedData {
                     area: RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS).into(),
                     ..Default::default()
                 }
                 .into(),
-                children,
-            };
+                feather_ui::children![fixed::Prop, discard, accept, list],
+            );
 
             let window = Window::new(
                 gen_id!().into(),
@@ -472,7 +447,7 @@ fn main() {
             appdata.nix = appdata
                 .last
                 .iter()
-                .map(|(k, v)| (k.clone(), EditObj::new(v.clone(), (0, 0)).into()))
+                .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
                 .collect();
 
             Ok(appdata)
@@ -487,7 +462,7 @@ fn main() {
             appdata.nix = appdata
                 .last
                 .iter()
-                .map(|(k, v)| (k.clone(), EditObj::new(v.clone(), (0, 0)).into()))
+                .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
                 .collect();
 
             Ok(appdata)
@@ -522,12 +497,13 @@ fn main() {
                 file: f,
                 nix: nix
                     .iter()
-                    .map(|(k, v)| (k.clone(), EditObj::new(v.clone(), (0, 0)).into()))
+                    .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
                     .collect(),
                 last: nix,
             },
             buttons,
             BasicApp {},
+            |_| (),
         )
         .unwrap();
 
