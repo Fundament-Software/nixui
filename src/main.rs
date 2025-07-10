@@ -6,6 +6,7 @@ use feather_ui::color::sRGB;
 use feather_ui::component::button::Button;
 use feather_ui::component::listbox::ListBox;
 use feather_ui::component::region::Region;
+use feather_ui::component::scroll_area::ScrollArea;
 use feather_ui::component::shape;
 use feather_ui::component::text::Text;
 use feather_ui::component::textbox::TextBox;
@@ -17,13 +18,14 @@ use feather_ui::persist::FnPersist;
 use feather_ui::text::{EditBuffer, EditView};
 use feather_ui::ultraviolet::{Vec2, Vec4};
 use feather_ui::{
-    AbsRect, App, DAbsRect, DPoint, DRect, DataID, RelLimits, RelRect, Slot, SourceID,
-    UNSIZED_AXIS, URect, gen_id, im, winit,
+    AbsRect, App, DAbsRect, DPoint, DRect, DataID, FILL_DRECT, RelLimits, RelRect, Slot, SourceID,
+    UNSIZED_AXIS, URect, ZERO_DABSRECT, gen_id, im, winit,
 };
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Clone, Debug, Default)]
 struct ConfigState {
@@ -82,8 +84,8 @@ struct BasicApp {}
 const GREEN: sRGB = sRGB::new(0.2, 0.7, 0.4, 1.0);
 const GRAY: sRGB = sRGB::new(0.45, 0.45, 0.45, 1.0);
 
-impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for BasicApp {
-    type Store = (ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>);
+impl FnPersist<ConfigState, im::HashMap<Arc<SourceID>, Option<Window>>> for BasicApp {
+    type Store = (ConfigState, im::HashMap<Arc<SourceID>, Option<Window>>);
 
     fn init(&self) -> Self::Store {
         (Default::default(), im::HashMap::new())
@@ -92,13 +94,13 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
         &mut self,
         mut store: Self::Store,
         args: &ConfigState,
-    ) -> (Self::Store, im::HashMap<Rc<SourceID>, Option<Window>>) {
+    ) -> (Self::Store, im::HashMap<Arc<SourceID>, Option<Window>>) {
         if store.0 != *args {
             let mut children: im::Vector<Option<Box<ChildOf<dyn list::Prop>>>> = im::Vector::new();
 
             for (i, (k, v)) in args.nix.iter().enumerate() {
                 let rect = shape::round_rect(
-                    gen_id!().child(DataID::Owned(k.to_string())).into(),
+                    gen_id!().child(DataID::Owned(k.to_string())),
                     feather_ui::FILL_DRECT.into(),
                     1.0,
                     0.0,
@@ -108,7 +110,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 );
 
                 let text = Text::<FixedData> {
-                    id: gen_id!().child(DataID::Owned(k.to_string())).into(),
+                    id: gen_id!().child(DataID::Owned(k.to_string())),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -117,7 +119,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                         .into(),
                         ..Default::default()
                     }),
-                    text: format!("[{}]", k),
+                    text: format!("[{k}]"),
                     font_size: 40.0,
                     line_height: 56.0,
                     ..Default::default()
@@ -139,7 +141,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 if let Some(v) = toggle {
                     let button = {
                         let rect = shape::round_rect(
-                            gen_id!().child(DataID::Owned(k.to_string())).into(),
+                            gen_id!().child(DataID::Owned(k.to_string())),
                             feather_ui::FILL_DRECT.into(),
                             3.0,
                             0.0,
@@ -149,7 +151,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                         );
 
                         let circle = shape::circle(
-                            gen_id!().child(DataID::Owned(k.to_string())).into(),
+                            gen_id!().child(DataID::Owned(k.to_string())),
                             FixedData {
                                 area: URect {
                                     abs: AbsRect::new(0.0, 0.0, 20.0, 20.0),
@@ -183,7 +185,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                         );
 
                         Button::<FixedData>::new(
-                            gen_id!().child(DataID::Owned(k.to_string())).into(),
+                            gen_id!().child(DataID::Owned(k.to_string())),
                             FixedData {
                                 area: URect {
                                     abs: AbsRect::new(-10.0, 0.0, 35.0, 30.0),
@@ -200,7 +202,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     parts.push_back(Some(Box::new(button)));
                 } else {
                     let textbox = TextBox::new(
-                        gen_id!().child(DataID::Owned(k.to_string())).into(),
+                        gen_id!().child(DataID::Owned(k.to_string())),
                         MinimalText {
                             area: URect {
                                 abs: AbsRect::new(10.0, 5.0, 10.0, 5.0),
@@ -225,7 +227,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     );
 
                     let rect = shape::round_rect::<DRect>(
-                        gen_id!().child(DataID::Owned(k.to_string())).into(),
+                        gen_id!().child(DataID::Owned(k.to_string())),
                         Rc::new(
                             URect {
                                 abs: AbsRect::new(6.0, 6.0, -6.0, -6.0),
@@ -241,7 +243,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                     );
 
                     let region = Region::new(
-                        gen_id!().child(DataID::Owned(k.to_string())).into(),
+                        gen_id!().child(DataID::Owned(k.to_string())),
                         FixedData {
                             area: URect::from(RelRect::new(1.0, 0.0, UNSIZED_AXIS, UNSIZED_AXIS))
                                 .into(),
@@ -260,7 +262,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 }
 
                 children.push_back(Some(Box::new(Region::new(
-                    gen_id!().child(DataID::Owned(k.to_string())).into(),
+                    gen_id!().child(DataID::Owned(k.to_string())),
                     FixedData {
                         area: URect::from(RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS)).into(),
                         padding: AbsRect::broadcast(16.0).into(),
@@ -273,10 +275,10 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
             }
 
             let list = ListBox::<ListData>::new(
-                gen_id!().into(),
+                gen_id!(),
                 ListData {
                     area: URect {
-                        abs: AbsRect::new(8.0, 68.0, -8.0, -8.0),
+                        abs: AbsRect::new(8.0, 8.0, -8.0, 8.0),
                         rel: RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS),
                     }
                     .into(),
@@ -292,7 +294,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
 
             let accept = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -309,7 +311,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 };
 
                 let rect = shape::round_rect::<DRect>(
-                    gen_id!().into(),
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -319,7 +321,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 8.0, 8.0, 48.0),
@@ -335,7 +337,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
 
             let discard = {
                 let text = Text::<FixedData> {
-                    id: gen_id!().into(),
+                    id: gen_id!(),
                     props: Rc::new(FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 0.0, 8.0, 0.0),
@@ -352,7 +354,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 };
 
                 let rect = shape::round_rect::<DRect>(
-                    gen_id!().into(),
+                    gen_id!(),
                     feather_ui::FILL_DRECT.into(),
                     0.0,
                     0.0,
@@ -362,7 +364,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 );
 
                 Button::<FixedData>::new(
-                    gen_id!().into(),
+                    gen_id!(),
                     FixedData {
                         area: URect {
                             abs: AbsRect::new(8.0, 8.0, 8.0, 48.0),
@@ -376,18 +378,34 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
                 )
             };
 
-            let region = Region::new(
-                gen_id!().into(),
+            let scrollarea = ScrollArea::new(
+                gen_id!(),
                 FixedData {
-                    area: RelRect::new(0.0, 0.0, 1.0, UNSIZED_AXIS).into(),
+                    area: URect {
+                        abs: AbsRect::new(8.0, 68.0, -8.0, -8.0),
+                        rel: RelRect::new(0.0, 0.0, 1.0, 1.0),
+                    }
+                    .into(),
+                    ..Default::default()
+                },
+                (None, Some(40.0)),
+                ZERO_DABSRECT,
+                feather_ui::children![fixed::Prop, list],
+                [None],
+            );
+
+            let region = Region::new(
+                gen_id!(),
+                FixedData {
+                    area: FILL_DRECT,
                     ..Default::default()
                 }
                 .into(),
-                feather_ui::children![fixed::Prop, discard, accept, list],
+                feather_ui::children![fixed::Prop, accept, discard, scrollarea],
             );
 
             let window = Window::new(
-                gen_id!().into(),
+                gen_id!(),
                 winit::window::Window::default_attributes()
                     .with_title("NixUI")
                     .with_resizable(true),
@@ -405,6 +423,7 @@ impl FnPersist<ConfigState, im::HashMap<Rc<SourceID>, Option<Window>>> for Basic
 
 use feather_ui::WrapEventEx;
 
+#[allow(clippy::type_complexity)]
 fn main() {
     /*
     let optionfile = match nix_data::cache::nixos::nixosoptions().unwrap();
@@ -437,8 +456,7 @@ fn main() {
                     }
                 }
 
-                s = nix_editor::write::write(&s, &format!("{}", k), &v.get().get_content())
-                    .unwrap();
+                s = nix_editor::write::write(&s, &k.to_string(), &v.get().get_content()).unwrap();
             }
             appdata.file = s;
 
@@ -447,7 +465,7 @@ fn main() {
             appdata.nix = appdata
                 .last
                 .iter()
-                .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
+                .map(|(k, v)| (k.clone(), EditBuffer::new(v, (0, 0)).into()))
                 .collect();
 
             Ok(appdata)
@@ -462,7 +480,7 @@ fn main() {
             appdata.nix = appdata
                 .last
                 .iter()
-                .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
+                .map(|(k, v)| (k.clone(), EditBuffer::new(v, (0, 0)).into()))
                 .collect();
 
             Ok(appdata)
@@ -497,7 +515,7 @@ fn main() {
                 file: f,
                 nix: nix
                     .iter()
-                    .map(|(k, v)| (k.clone(), EditBuffer::new(&v, (0, 0)).into()))
+                    .map(|(k, v)| (k.clone(), EditBuffer::new(v, (0, 0)).into()))
                     .collect(),
                 last: nix,
             },

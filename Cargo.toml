@@ -8,5 +8,5 @@ edition = "2024"
 
 [dependencies]
 nix-editor = "0.3.0"
-feather-ui = { git = "https://github.com/Fundament-Software/feathergui", branch = "simplify" }
-feather-macro = { git = "https://github.com/Fundament-Software/feathergui", branch = "simplify" }
+feather-ui = "0.2"
+feather-macro = "0.2"

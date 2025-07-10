@@ -56,7 +56,7 @@ in
   programs.nix-ld.enable = true;
 
   # Enable nix flakes
-  nix.distributedBuilds = true;
+  nix.distributedBuilds = false;
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.system-features = [ "kvm" "big-parallel" ];
   nix.settings.trusted-users = [ "root" "wsl-user" ];
